@@ -52,6 +52,88 @@
         :level="level + 1"
       />
     </div>
+
+    <!-- 右键菜单对话框 -->
+    <div v-if="showContextMenu" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click="showContextMenu = false">
+      <div class="bg-white rounded-lg shadow-xl p-4 min-w-[200px]" @click.stop>
+        <button
+          @click="handleCreateSubfolder"
+          class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm"
+        >
+          新建子文件夹
+        </button>
+        <button
+          @click="handleRename"
+          class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm"
+        >
+          重命名
+        </button>
+        <button
+          @click="handleDelete"
+          class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 rounded text-sm"
+        >
+          删除
+        </button>
+      </div>
+    </div>
+
+    <!-- 新建子文件夹对话框 -->
+    <div v-if="showSubfolderDialog" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click="showSubfolderDialog = false">
+      <div class="bg-white rounded-lg shadow-xl p-6 min-w-[300px]" @click.stop>
+        <h3 class="text-lg font-semibold mb-4">新建子文件夹</h3>
+        <input
+          v-model="subfolderName"
+          @keyup.enter="confirmCreateSubfolder"
+          type="text"
+          placeholder="文件夹名称"
+          class="w-full px-3 py-2 border border-gray-300 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          autofocus
+        />
+        <div class="flex gap-2 justify-end">
+          <button
+            @click="showSubfolderDialog = false"
+            class="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200"
+          >
+            取消
+          </button>
+          <button
+            @click="confirmCreateSubfolder"
+            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            创建
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 重命名对话框 -->
+    <div v-if="showRenameDialog" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click="showRenameDialog = false">
+      <div class="bg-white rounded-lg shadow-xl p-6 min-w-[300px]" @click.stop>
+        <h3 class="text-lg font-semibold mb-4">重命名文件夹</h3>
+        <input
+          v-model="newName"
+          @keyup.enter="confirmRename"
+          type="text"
+          placeholder="新名称"
+          class="w-full px-3 py-2 border border-gray-300 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          autofocus
+        />
+        <div class="flex gap-2 justify-end">
+          <button
+            @click="showRenameDialog = false"
+            class="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200"
+          >
+            取消
+          </button>
+          <button
+            @click="confirmRename"
+            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            确定
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -67,6 +149,11 @@ const props = defineProps<{
 
 const store = useNotesStore()
 const isDragOver = ref(false)
+const showContextMenu = ref(false)
+const showSubfolderDialog = ref(false)
+const showRenameDialog = ref(false)
+const subfolderName = ref('')
+const newName = ref('')
 
 const isSelected = computed(() => store.currentFolderId === props.folder.id)
 const isExpanded = computed(() => store.expandedFolders.has(props.folder.id))
@@ -109,36 +196,38 @@ function toggleExpand() {
 
 function handleContextMenu(event: MouseEvent) {
   if (props.folder.id === 'all') return // 不能操作"所有笔记"
+  showContextMenu.value = true
+}
 
-  const options = [
-    '新建子文件夹',
-    '重命名',
-    '删除'
-  ]
+function handleCreateSubfolder() {
+  showContextMenu.value = false
+  subfolderName.value = ''
+  showSubfolderDialog.value = true
+}
 
-  const choice = prompt(`选择操作：\n${options.map((o, i) => `${i + 1}. ${o}`).join('\n')}`)
-
-  if (!choice) return
-
-  const index = parseInt(choice) - 1
-
-  switch (index) {
-    case 0: // 新建子文件夹
-      const name = prompt('输入文件夹名称：')
-      if (name) {
-        store.addFolder(name, props.folder.id)
-      }
-      break
-    case 1: // 重命名
-      const newName = prompt('输入新名称：', props.folder.name)
-      if (newName && newName !== props.folder.name) {
-        store.renameFolder(props.folder.id, newName)
-      }
-      break
-    case 2: // 删除
-      store.deleteFolder(props.folder.id)
-      break
+function confirmCreateSubfolder() {
+  if (subfolderName.value.trim()) {
+    store.addFolder(subfolderName.value.trim(), props.folder.id)
+    showSubfolderDialog.value = false
   }
+}
+
+function handleRename() {
+  showContextMenu.value = false
+  newName.value = props.folder.name
+  showRenameDialog.value = true
+}
+
+function confirmRename() {
+  if (newName.value.trim() && newName.value !== props.folder.name) {
+    store.renameFolder(props.folder.id, newName.value.trim())
+    showRenameDialog.value = false
+  }
+}
+
+function handleDelete() {
+  showContextMenu.value = false
+  store.deleteFolder(props.folder.id)
 }
 
 // 拖拽处理
