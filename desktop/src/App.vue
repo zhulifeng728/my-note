@@ -19,28 +19,12 @@
 
       <div class="flex-1 overflow-y-auto py-2">
         <div class="px-2 space-y-1">
-          <div
+          <FolderTreeItem
             v-for="folder in store.folders"
             :key="folder.id"
-            @click="store.currentFolderId = folder.id"
-            @contextmenu.prevent="handleFolderContextMenu(folder, $event)"
-            :class="[
-              'px-2 py-2 rounded cursor-pointer group relative',
-              store.currentFolderId === folder.id
-                ? 'bg-blue-100 text-blue-900'
-                : 'hover:bg-gray-200 text-gray-700'
-            ]"
-          >
-            <div class="flex items-center gap-2">
-              <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-              </svg>
-              <span class="text-sm flex-1 truncate text-left">{{ folder.name }}</span>
-              <span class="text-xs text-gray-500 flex-shrink-0">
-                {{ folder.id === 'all' ? store.notes.length : 0 }}
-              </span>
-            </div>
-          </div>
+            :folder="folder"
+            :level="0"
+          />
         </div>
       </div>
 
@@ -103,6 +87,9 @@
         <div
           v-for="note in store.filteredNotes"
           :key="note.id"
+          draggable="true"
+          @dragstart="handleNoteDragStart(note.id, $event)"
+          @dragend="handleNoteDragEnd"
           @click="store.currentNoteId = note.id"
           :class="[
             'px-4 py-3 border-b border-gray-100 cursor-pointer',
@@ -328,6 +315,7 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
 import { useNotesStore } from './stores/notes'
+import FolderTreeItem from './components/FolderTreeItem.vue'
 
 const store = useNotesStore()
 const searchQuery = ref('')
@@ -619,13 +607,16 @@ function handleNewFolder() {
   }
 }
 
-// 文件夹右键菜单（暂时简化，只支持删除）
-function handleFolderContextMenu(folder: any, event: MouseEvent) {
-  if (folder.id === 'all') return // 不能删除"所有笔记"
-
-  if (confirm(`确定要删除文件夹"${folder.name}"吗？`)) {
-    store.deleteFolder(folder.id)
+// 笔记拖拽
+function handleNoteDragStart(noteId: string, event: DragEvent) {
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('noteId', noteId)
   }
+}
+
+function handleNoteDragEnd() {
+  // 清理拖拽状态
 }
 
 function formatDate(ts: number): string {
