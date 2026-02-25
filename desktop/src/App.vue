@@ -199,6 +199,14 @@
                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
               </svg>
             </ToolBtn>
+
+            <div class="w-px h-5 bg-gray-300 mx-1"></div>
+
+            <ToolBtn @click="handleInsertImage" title="插入图片">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </ToolBtn>
           </div>
 
           <div class="flex items-center gap-2 app-no-drag">
@@ -318,6 +326,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
+import Image from '@tiptap/extension-image'
 import { useNotesStore } from './stores/notes'
 
 const store = useNotesStore()
@@ -419,11 +428,47 @@ const editor = useEditor({
     Underline,
     TaskList,
     TaskItem.configure({ nested: true }),
+    Image.configure({
+      inline: true,
+      allowBase64: true,
+    }),
   ],
   content: '',
   editorProps: {
     attributes: {
       class: 'focus:outline-none min-h-[400px]',
+    },
+    handlePaste: (view, event) => {
+      // 处理粘贴图片
+      const items = event.clipboardData?.items
+      if (!items) return false
+
+      for (const item of Array.from(items)) {
+        if (item.type.indexOf('image') === 0) {
+          event.preventDefault()
+          const file = item.getAsFile()
+          if (file) {
+            handleImageFile(file)
+          }
+          return true
+        }
+      }
+      return false
+    },
+    handleDrop: (view, event, slice, moved) => {
+      // 处理拖拽图片
+      if (!event.dataTransfer) return false
+
+      const files = Array.from(event.dataTransfer.files)
+      const imageFiles = files.filter(file => file.type.indexOf('image') === 0)
+
+      if (imageFiles.length > 0) {
+        event.preventDefault()
+        imageFiles.forEach(file => handleImageFile(file))
+        return true
+      }
+
+      return false
     },
   },
   onUpdate: ({ editor }) => {
@@ -492,6 +537,54 @@ async function handleExport() {
 
 function handleSearch() {
   store.searchNotes(searchQuery.value)
+}
+
+// 图片处理
+async function handleImageFile(file: File) {
+  // 检查文件类型
+  if (!file.type.startsWith('image/')) {
+    alert('只支持图片文件')
+    return
+  }
+
+  // 检查文件大小 (10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    alert('图片过大，最大支持 10MB')
+    return
+  }
+
+  try {
+    // 读取文件为 Data URL
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const dataURL = e.target?.result as string
+      if (!dataURL) return
+
+      // 压缩图片
+      const compressedDataURL = await window.imageAPI.compress(dataURL)
+
+      // 插入到编辑器
+      editor.value?.chain().focus().setImage({ src: compressedDataURL }).run()
+    }
+    reader.readAsDataURL(file)
+  } catch (error) {
+    console.error('Failed to process image:', error)
+    alert('图片处理失败')
+  }
+}
+
+async function handleInsertImage() {
+  // 创建文件选择器
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (file) {
+      await handleImageFile(file)
+    }
+  }
+  input.click()
 }
 
 // 显示配对码
@@ -695,5 +788,22 @@ body.resizing {
   border-radius: 0.25em;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
   font-size: 0.9em;
+}
+
+.prose :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5em;
+  margin: 1em 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.prose :deep(img:hover) {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.prose :deep(img.ProseMirror-selectednode) {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 </style>
