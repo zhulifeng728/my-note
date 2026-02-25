@@ -145,6 +145,50 @@
         </div>
       </div>
     </div>
+
+    <!-- 删除确认对话框 -->
+    <div v-if="showDeleteDialog" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click="showDeleteDialog = false">
+      <div class="bg-white rounded-lg shadow-xl p-6 min-w-[400px]" @click.stop>
+        <h3 class="text-lg font-semibold mb-4">删除文件夹</h3>
+        <p class="text-sm text-gray-600 mb-4">
+          <span v-if="deleteInfo?.hasSubfolders">
+            文件夹包含 {{ deleteInfo.subfoldersCount }} 个子文件夹和 {{ deleteInfo.noteCount }} 条笔记
+          </span>
+          <span v-else-if="deleteInfo?.noteCount">
+            文件夹包含 {{ deleteInfo.noteCount }} 条笔记
+          </span>
+        </p>
+        <div class="flex flex-col gap-2">
+          <button
+            v-if="deleteInfo && (deleteInfo.noteCount > 0 || deleteInfo.hasSubfolders)"
+            @click="confirmDelete('all')"
+            class="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+          >
+            将笔记移到"所有笔记"并删除文件夹
+          </button>
+          <button
+            v-if="deleteInfo && (deleteInfo.noteCount > 0 || deleteInfo.hasSubfolders)"
+            @click="confirmDelete(null)"
+            class="w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+          >
+            删除文件夹及所有笔记
+          </button>
+          <button
+            v-if="deleteInfo && deleteInfo.noteCount === 0 && !deleteInfo.hasSubfolders"
+            @click="confirmDelete(null)"
+            class="w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+          >
+            删除空文件夹
+          </button>
+          <button
+            @click="showDeleteDialog = false"
+            class="w-full px-4 py-2 bg-gray-100 rounded hover:bg-gray-200 text-sm"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -163,9 +207,11 @@ const isDragOver = ref(false)
 const showContextMenu = ref(false)
 const showSubfolderDialog = ref(false)
 const showRenameDialog = ref(false)
+const showDeleteDialog = ref(false)
 const subfolderName = ref('')
 const newName = ref('')
 const menuPosition = ref({ x: 0, y: 0 })
+const deleteInfo = ref<{ noteCount: number; hasSubfolders: boolean; subfoldersCount: number } | null>(null)
 
 const isSelected = computed(() => store.currentFolderId === props.folder.id)
 const isExpanded = computed(() => store.expandedFolders.has(props.folder.id))
@@ -242,9 +288,27 @@ function confirmRename() {
   }
 }
 
-function handleDelete() {
+async function handleDelete() {
   showContextMenu.value = false
-  store.deleteFolder(props.folder.id)
+  try {
+    const info = await store.deleteFolder(props.folder.id)
+    if (info) {
+      deleteInfo.value = info
+      showDeleteDialog.value = true
+    }
+  } catch (error) {
+    console.error('Failed to check folder:', error)
+  }
+}
+
+async function confirmDelete(moveToFolderId: string | null) {
+  try {
+    await store.deleteFolderConfirm(props.folder.id, moveToFolderId)
+    showDeleteDialog.value = false
+    deleteInfo.value = null
+  } catch (error) {
+    console.error('Failed to delete folder:', error)
+  }
 }
 
 // 拖拽处理

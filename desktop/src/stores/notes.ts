@@ -151,25 +151,16 @@ export const useNotesStore = defineStore('notes', () => {
     try {
       // 检查文件夹状态
       const info = await window.foldersAPI.delete(id)
+      return info // 返回文件夹信息供组件使用
+    } catch (error) {
+      console.error('Failed to check folder:', error)
+      throw error
+    }
+  }
 
-      if (info.noteCount > 0 || info.hasSubfolders) {
-        // 显示确认对话框
-        const message = info.hasSubfolders
-          ? `文件夹"${id}"包含 ${info.subfoldersCount} 个子文件夹和 ${info.noteCount} 条笔记。\n\n删除选项：\n1. 将笔记移到"所有笔记"\n2. 删除文件夹及所有笔记`
-          : `文件夹包含 ${info.noteCount} 条笔记。\n\n删除选项：\n1. 将笔记移到"所有笔记"\n2. 删除文件夹及所有笔记`
-
-        const choice = confirm(message + '\n\n点击"确定"移动笔记，点击"取消"放弃删除')
-
-        if (choice) {
-          // 移动笔记到"所有笔记"
-          await window.foldersAPI.deleteConfirm(id, 'all')
-        } else {
-          return
-        }
-      } else {
-        // 直接删除空文件夹
-        await window.foldersAPI.deleteConfirm(id, null)
-      }
+  async function deleteFolderConfirm(id: string, moveToFolderId: string | null) {
+    try {
+      await window.foldersAPI.deleteConfirm(id, moveToFolderId)
 
       if (currentFolderId.value === id) {
         currentFolderId.value = 'all'
@@ -179,6 +170,7 @@ export const useNotesStore = defineStore('notes', () => {
       await loadNotes()
     } catch (error) {
       console.error('Failed to delete folder:', error)
+      throw error
     }
   }
 
@@ -237,6 +229,7 @@ export const useNotesStore = defineStore('notes', () => {
     loadFolders,
     addFolder,
     deleteFolder,
+    deleteFolderConfirm,
     renameFolder,
     moveNoteToFolder,
     toggleFolder,
