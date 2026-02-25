@@ -1,85 +1,45 @@
-// ===== Note 相关类型 =====
+// 从 electron 目录导出共享类型
+export type {
+  Note,
+  CreateNotePayload,
+  UpdateNotePayload,
+  ExportNotePayload,
+  Device,
+  SyncLog,
+  SyncConnectionStatus,
+  SyncStatus,
+  ConflictInfo,
+  ConflictResolvePayload,
+} from '../../electron/types'
 
-export interface Note {
-  id: string
-  title: string
-  content: string
-  created_at: number
-  updated_at: number
-  is_deleted: number
-}
-
-export interface CreateNotePayload {
-  title: string
-  content: string
-}
-
-export interface UpdateNotePayload {
-  id: string
-  title?: string
-  content?: string
-}
-
-export interface ExportNotePayload {
-  id: string
-  format: 'md' | 'txt' | 'docx'
-}
-
-// ===== 同步相关类型 =====
-
-export interface Device {
-  id: string
-  device_name: string
-  token: string
-  last_seen_at: number | null
-  is_trusted: number
-}
-
-export interface SyncLog {
-  id: string
-  note_id: string
-  device_id: string
-  synced_at: number
-  status: 'pending' | 'success' | 'conflict'
-  conflict_data: string | null
-}
-
-export type SyncConnectionStatus = 'waiting' | 'connected' | 'error'
-
-export interface SyncStatus {
-  connection: SyncConnectionStatus
-  pendingCount: number
-  lastSyncAt: number | null
-  connectedDevice: string | null
-}
-
-export interface ConflictInfo {
-  note_id: string
-  local: Note
-  remote: Note
-}
-
-export interface ConflictResolvePayload {
-  note_id: string
-  keep: 'local' | 'remote' | 'both'
-}
-
-// ===== IPC 通道名称 =====
-
-export const IPC = {
-  NOTES_GET_ALL: 'notes:getAll',
-  NOTES_GET: 'notes:get',
-  NOTES_CREATE: 'notes:create',
-  NOTES_UPDATE: 'notes:update',
-  NOTES_DELETE: 'notes:delete',
-  NOTES_SEARCH: 'notes:search',
-  NOTES_EXPORT: 'notes:export',
-  SYNC_STATUS: 'sync:status',
-  SYNC_CONFLICT: 'sync:conflict',
-  SYNC_RESOLVE: 'sync:resolve',
-} as const
+export { IPC } from '../../electron/types'
 
 // ===== Window API 类型声明 =====
+
+import type {
+  Note,
+  CreateNotePayload,
+  UpdateNotePayload,
+  ExportNotePayload,
+  SyncStatus,
+  ConflictInfo,
+  ConflictResolvePayload,
+} from '../../electron/types'
+
+export interface Folder {
+  id: string
+  name: string
+  parent_id: string | null
+  icon: string
+  created_at: number
+  updated_at: number
+  sort_order: number
+}
+
+export interface FolderTree extends Folder {
+  children: FolderTree[]
+  noteCount?: number
+}
 
 declare global {
   interface Window {
@@ -91,6 +51,17 @@ declare global {
       delete: (id: string) => Promise<void>
       search: (keyword: string) => Promise<Note[]>
       export: (payload: ExportNotePayload) => Promise<{ success: boolean; path?: string; error?: string }>
+      moveToFolder: (note_id: string, folder_id: string) => Promise<Note>
+    }
+    foldersAPI: {
+      getAll: () => Promise<Folder[]>
+      getTree: () => Promise<FolderTree[]>
+      create: (name: string, parent_id?: string | null) => Promise<Folder>
+      update: (id: string, changes: { name?: string; parent_id?: string | null }) => Promise<Folder>
+      delete: (id: string) => Promise<{ canDelete: boolean; noteCount: number; hasSubfolders: boolean; subfoldersCount: number }>
+      deleteConfirm: (id: string, moveNotesTo: string | null) => Promise<{ success: boolean }>
+      move: (id: string, new_parent_id: string | null) => Promise<Folder>
+      getNotesCount: (folder_id: string) => Promise<number>
     }
     syncAPI: {
       getStatus: () => Promise<SyncStatus>

@@ -4,15 +4,21 @@ import fs from 'fs'
 import { initDb, backupDb } from './db/database'
 import {
   getAllNotes, getNoteById, createNote,
-  updateNote, deleteNote, searchNotes
+  updateNote, deleteNote, searchNotes, moveNoteToFolder,
+  getNotesByFolder, getNotesCountByFolder
 } from './db/notes'
+import {
+  getAllFolders, getFolderTree, createFolder,
+  updateFolder, deleteFolder, moveFolderToParent,
+  getDescendantFolderIds
+} from './db/folders'
 import { startSyncServer, stopSyncServer, getSyncStatus } from './sync/server'
 import { exportNote } from './export'
-import { IPC } from '../src/types'
+import { IPC } from './types'
 import type {
   CreateNotePayload, UpdateNotePayload,
   ExportNotePayload, ConflictResolvePayload
-} from '../src/types'
+} from './types'
 
 let mainWindow: BrowserWindow | null = null
 const isDev = process.env.NODE_ENV === 'development'
@@ -20,23 +26,49 @@ const isDev = process.env.NODE_ENV === 'development'
 // ===== 窗口创建 =====
 
 function createWindow() {
+  const preloadPath = isDev
+    ? path.join(__dirname, 'preload.js')
+    : path.join(__dirname, 'preload.js')
+
+  console.log('[Main] Preload path:', preloadPath)
+  console.log('[Main] Preload exists:', require('fs').existsSync(preloadPath))
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
     minHeight: 600,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    trafficLightPosition: process.platform === 'darwin' ? { x: 12, y: 12 } : undefined,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false, // 禁用沙箱以确保 preload 脚本可以执行
     },
     show: false, // 等加载完成后再显示，避免白屏
+  })
+
+  // 监听页面加载完成
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[Main] Page loaded')
+  })
+
+  mainWindow.webContents.on('preload-error', (event, preloadPath, error) => {
+    console.error('[Main] Preload error:', preloadPath, error)
   })
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
+
+    // 在开发模式下，等待页面加载后手动注入 API
+    mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow?.webContents.executeJavaScript(`
+        console.log('[Inject] Injecting APIs...');
+        window.__ELECTRON__ = true;
+      `)
+    })
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
@@ -104,7 +136,7 @@ ipcMain.handle(IPC.NOTES_EXPORT, async (_, payload: ExportNotePayload) => {
   const note = getNoteById(payload.id)
   if (!note) return { success: false, error: '笔记不存在' }
 
-  const extMap = { md: '.md', txt: '.txt', docx: '.docx' }
+  const extMap: Record<string, string> = { md: '.md', txt: '.txt', docx: '.docx' }
   const ext = extMap[payload.format]
 
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow!, {
@@ -131,4 +163,62 @@ ipcMain.handle(IPC.SYNC_RESOLVE, (_, payload: ConflictResolvePayload) => {
   // 交给 sync server 处理冲突决策
   const { resolveConflict } = require('./sync/server')
   return resolveConflict(payload)
+})
+
+// ===== Folders IPC Handlers =====
+
+ipcMain.handle(IPC.FOLDERS_GET_ALL, () => {
+  return getAllFolders()
+})
+
+ipcMain.handle(IPC.FOLDERS_GET_TREE, () => {
+  return getFolderTree()
+})
+
+ipcMain.handle(IPC.FOLDERS_CREATE, (_, name: string, parent_id: string | null = null) => {
+  return createFolder(name, parent_id)
+})
+
+ipcMain.handle(IPC.FOLDERS_UPDATE, (_, id: string, changes: { name?: string; parent_id?: string | null }) => {
+  return updateFolder(id, changes)
+})
+
+ipcMain.handle(IPC.FOLDERS_DELETE, (_, id: string) => {
+  // 获取文件夹下的笔记数量
+  const noteCount = getNotesCountByFolder(id)
+  // 获取子文件夹
+  const descendantIds = getDescendantFolderIds(id)
+
+  return {
+    canDelete: true,
+    noteCount,
+    hasSubfolders: descendantIds.length > 0,
+    subfoldersCount: descendantIds.length
+  }
+})
+
+ipcMain.handle(IPC.FOLDERS_DELETE + ':confirm', (_, id: string, moveNotesTo: string | null) => {
+  // 如果需要移动笔记
+  if (moveNotesTo) {
+    const notes = getNotesByFolder(id)
+    notes.forEach(note => {
+      moveNoteToFolder(note.id, moveNotesTo)
+    })
+  }
+
+  // 删除文件夹（会级联删除子文件夹）
+  deleteFolder(id)
+  return { success: true }
+})
+
+ipcMain.handle(IPC.FOLDERS_MOVE, (_, id: string, new_parent_id: string | null) => {
+  return moveFolderToParent(id, new_parent_id)
+})
+
+ipcMain.handle(IPC.FOLDERS_GET_NOTES_COUNT, (_, folder_id: string) => {
+  return getNotesCountByFolder(folder_id)
+})
+
+ipcMain.handle(IPC.NOTES_MOVE_TO_FOLDER, (_, note_id: string, folder_id: string) => {
+  return moveNoteToFolder(note_id, folder_id)
 })
