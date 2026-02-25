@@ -1,56 +1,699 @@
 <template>
-  <div class="flex flex-col h-screen bg-gray-50 select-none">
-    <!-- 顶部工具栏 -->
-    <Toolbar />
+  <div class="flex h-screen bg-gray-100">
+    <!-- 左侧边栏：文件夹 -->
+    <div :style="{ width: sidebarWidth + 'px' }" class="bg-gray-50 border-r border-gray-200 flex flex-col relative">
+      <!-- 标题栏 - 为 macOS 流量灯按钮留空间 -->
+      <div class="h-12 flex items-center border-b border-gray-200 app-drag flex-shrink-0"
+           :class="isFullscreen ? 'pl-3' : (isMac ? 'pl-20' : 'pl-3')">
+        <span class="text-sm font-semibold text-gray-700 flex-1">文件夹</span>
+        <button
+          @click="showNewFolderDialog = true"
+          class="app-no-drag p-1 hover:bg-gray-200 rounded mr-3"
+          title="新建文件夹"
+        >
+          <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </button>
+      </div>
 
-    <!-- 主内容区：左侧列表 + 右侧编辑器 -->
-    <div class="flex flex-1 overflow-hidden">
-      <NoteList class="w-72 flex-shrink-0" />
-      <NoteEditor class="flex-1" />
+      <div class="flex-1 overflow-y-auto py-2">
+        <div class="px-2 space-y-1">
+          <div
+            v-for="folder in store.folders"
+            :key="folder.id"
+            @click="store.currentFolderId = folder.id"
+            @contextmenu.prevent="handleFolderContextMenu(folder, $event)"
+            :class="[
+              'px-2 py-2 rounded cursor-pointer group relative',
+              store.currentFolderId === folder.id
+                ? 'bg-blue-100 text-blue-900'
+                : 'hover:bg-gray-200 text-gray-700'
+            ]"
+          >
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+              </svg>
+              <span class="text-sm flex-1 truncate text-left">{{ folder.name }}</span>
+              <span class="text-xs text-gray-500 flex-shrink-0">
+                {{ folder.id === 'all' ? store.notes.length : 0 }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 同步状态 - 左下角 -->
+      <div class="border-t border-gray-200 p-2 flex-shrink-0">
+        <button
+          @click="showPairingCode"
+          class="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 rounded text-xs text-gray-600 transition-colors"
+        >
+          <div :class="[
+            'w-1.5 h-1.5 rounded-full flex-shrink-0',
+            store.syncStatus.connection === 'connected' ? 'bg-green-500' : 'bg-gray-400'
+          ]"></div>
+          <span class="flex-1 text-left truncate">
+            {{ store.syncStatus.connectedDevice || '未连接' }}
+          </span>
+          <svg v-if="!store.syncStatus.connectedDevice" class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- 可拖拽分隔线 -->
+      <div
+        @mousedown="startResize('sidebar', $event)"
+        class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-400 transition-colors group"
+      >
+        <div class="absolute inset-y-0 -left-1 -right-1"></div>
+      </div>
     </div>
 
-    <!-- 底部状态栏 -->
-    <StatusBar />
+    <!-- 中间：笔记列表 -->
+    <div :style="{ width: noteListWidth + 'px' }" class="bg-white border-r border-gray-200 flex flex-col relative">
+      <div class="h-12 flex items-center justify-between px-4 border-b border-gray-200 app-drag">
+        <span class="text-sm font-semibold text-gray-700">笔记</span>
+        <button
+          @click="handleNewNote"
+          class="app-no-drag p-1.5 hover:bg-gray-100 rounded"
+          title="新建笔记"
+        >
+          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </button>
+      </div>
 
-    <!-- 冲突处理弹窗 -->
-    <ConflictDialog v-if="store.pendingConflict" />
+      <!-- 搜索框 -->
+      <div class="px-3 py-2 border-b border-gray-200">
+        <input
+          v-model="searchQuery"
+          @input="handleSearch"
+          type="text"
+          placeholder="搜索"
+          class="w-full px-3 py-1.5 text-sm bg-gray-100 border-none rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+      </div>
+
+      <!-- 笔记列表 -->
+      <div class="flex-1 overflow-y-auto">
+        <div
+          v-for="note in store.filteredNotes"
+          :key="note.id"
+          @click="store.currentNoteId = note.id"
+          :class="[
+            'px-4 py-3 border-b border-gray-100 cursor-pointer',
+            store.currentNoteId === note.id
+              ? 'bg-blue-50'
+              : 'hover:bg-gray-50'
+          ]"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-sm text-gray-900 truncate">
+                {{ note.title || '新笔记' }}
+              </div>
+              <div class="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                <span>{{ formatDate(note.updated_at) }}</span>
+                <span class="text-gray-400">{{ getPreviewText(note.content) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-if="store.notes.length === 0" class="flex flex-col items-center justify-center h-full text-gray-400 px-8 text-center">
+          <svg class="w-16 h-16 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+          <p class="text-sm">没有笔记</p>
+          <p class="text-xs mt-1">点击右上角 + 创建新笔记</p>
+        </div>
+      </div>
+
+      <!-- 可拖拽分隔线 -->
+      <div
+        @mousedown="startResize('noteList', $event)"
+        class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-400 transition-colors group"
+      >
+        <div class="absolute inset-y-0 -left-1 -right-1"></div>
+      </div>
+    </div>
+
+    <!-- 右侧：编辑器 -->
+    <div class="flex-1 flex flex-col bg-white">
+      <!-- 空状态 -->
+      <div v-if="!store.currentNote" class="flex flex-col items-center justify-center h-full text-gray-400">
+        <svg class="w-20 h-20 mb-4 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+        <p class="text-sm">选择一个笔记或创建新笔记</p>
+      </div>
+
+      <!-- 编辑器 -->
+      <template v-else>
+        <!-- 工具栏 -->
+        <div class="h-12 flex items-center justify-between px-6 border-b border-gray-200 app-drag">
+          <div class="flex items-center gap-1 app-no-drag">
+            <ToolBtn @click="editor?.chain().focus().toggleBold().run()"
+              :active="editor?.isActive('bold')" title="粗体">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M6 4v12h4.5c2.5 0 4.5-1.5 4.5-4 0-1.5-.8-2.8-2-3.5.7-.7 1-1.6 1-2.5 0-2-1.5-3-4-3H6zm2 2h2c1 0 1.5.5 1.5 1.5S11 9 10 9H8V6zm0 5h2.5c1.2 0 2 .8 2 2s-.8 2-2 2H8v-4z"/>
+              </svg>
+            </ToolBtn>
+            <ToolBtn @click="editor?.chain().focus().toggleItalic().run()"
+              :active="editor?.isActive('italic')" title="斜体">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 4h4v2h-1.5l-2 8H12v2H8v-2h1.5l2-8H10V4z"/>
+              </svg>
+            </ToolBtn>
+            <ToolBtn @click="editor?.chain().focus().toggleUnderline().run()"
+              :active="editor?.isActive('underline')" title="下划线">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M6 3v7c0 2.2 1.8 4 4 4s4-1.8 4-4V3h-2v7c0 1.1-.9 2-2 2s-2-.9-2-2V3H6zm-2 14h12v2H4v-2z"/>
+              </svg>
+            </ToolBtn>
+
+            <div class="w-px h-5 bg-gray-300 mx-1"></div>
+
+            <ToolBtn @click="editor?.chain().focus().toggleHeading({ level: 1 }).run()"
+              :active="editor?.isActive('heading', { level: 1 })" title="标题">
+              <span class="text-sm font-bold">T</span>
+            </ToolBtn>
+
+            <ToolBtn @click="editor?.chain().focus().toggleBulletList().run()"
+              :active="editor?.isActive('bulletList')" title="列表">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 5h2v2H3V5zm4 0h10v2H7V5zM3 9h2v2H3V9zm4 0h10v2H7V9zm-4 4h2v2H3v-2zm4 0h10v2H7v-2z"/>
+              </svg>
+            </ToolBtn>
+
+            <ToolBtn @click="editor?.chain().focus().toggleTaskList().run()"
+              :active="editor?.isActive('taskList')" title="待办">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+            </ToolBtn>
+          </div>
+
+          <div class="flex items-center gap-2 app-no-drag">
+            <button
+              @click="handleDelete"
+              class="p-1.5 hover:bg-gray-100 rounded text-gray-600"
+              title="删除笔记"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+            <button
+              @click="handleExport"
+              class="p-1.5 hover:bg-gray-100 rounded text-gray-600"
+              title="导出"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- 编辑区域 -->
+        <div class="flex-1 overflow-y-auto">
+          <div class="max-w-4xl mx-auto px-12 py-8">
+            <!-- 标题 -->
+            <input
+              v-model="titleInput"
+              @input="handleTitleChange"
+              placeholder="标题"
+              class="w-full text-3xl font-bold text-gray-900 placeholder-gray-300 border-none outline-none bg-transparent mb-4"
+            />
+
+            <!-- 日期和状态 -->
+            <div class="flex items-center gap-3 text-xs text-gray-400 mb-6">
+              <span>{{ formatFullDate(store.currentNote.updated_at) }}</span>
+              <span v-if="isSaving" class="text-yellow-600">保存中…</span>
+              <span v-else-if="savedRecently" class="text-green-600">已保存</span>
+            </div>
+
+            <!-- Tiptap 编辑器 -->
+            <EditorContent :editor="editor" class="prose prose-sm max-w-none" />
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- 配对码弹窗 -->
+    <div v-if="showPairing" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="showPairing = false">
+      <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl" @click.stop>
+        <h2 class="text-xl font-bold text-gray-900 mb-4">连接移动设备</h2>
+        <p class="text-sm text-gray-600 mb-6">在移动端 APP 中扫描或输入以下配对码</p>
+
+        <!-- 配对码显示 -->
+        <div class="bg-blue-50 border-2 border-blue-400 rounded-lg p-8 mb-6 text-center">
+          <div class="text-5xl font-bold text-blue-900 tracking-widest mb-2">
+            {{ pairingCode }}
+          </div>
+          <div class="text-xs text-gray-500">配对码将在 {{ pairingExpiry }} 秒后过期</div>
+        </div>
+
+        <div class="text-xs text-gray-500 mb-4">
+          <p class="mb-2">连接步骤：</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>打开移动端笔记 APP</li>
+            <li>点击"连接桌面端"</li>
+            <li>输入上方配对码</li>
+          </ol>
+        </div>
+
+        <button
+          @click="showPairing = false"
+          class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+        >
+          关闭
+        </button>
+      </div>
+    </div>
+
+    <!-- 新建文件夹弹窗 -->
+    <div v-if="showNewFolderDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="showNewFolderDialog = false">
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl" @click.stop>
+        <h2 class="text-lg font-bold text-gray-900 mb-4">新建文件夹</h2>
+        <input
+          v-model="newFolderName"
+          @keyup.enter="handleNewFolder"
+          type="text"
+          placeholder="文件夹名称"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 mb-4"
+          autofocus
+        />
+        <div class="flex gap-2 justify-end">
+          <button
+            @click="showNewFolderDialog = false"
+            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+          >
+            取消
+          </button>
+          <button
+            @click="handleNewFolder"
+            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            创建
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { ref, watch, onBeforeUnmount, defineComponent, h } from 'vue'
+import { useEditor, EditorContent } from '@tiptap/vue-3'
+import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
 import { useNotesStore } from './stores/notes'
-import Toolbar from './components/Toolbar.vue'
-import NoteList from './components/NoteList.vue'
-import NoteEditor from './components/NoteEditor.vue'
-import StatusBar from './components/StatusBar.vue'
-import ConflictDialog from './components/ConflictDialog.vue'
 
 const store = useNotesStore()
+const searchQuery = ref('')
+const titleInput = ref('')
+const isSaving = ref(false)
+const savedRecently = ref(false)
+const showPairing = ref(false)
+const pairingCode = ref('')
+const pairingExpiry = ref(60)
+const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+const showNewFolderDialog = ref(false)
+const newFolderName = ref('')
+const isFullscreen = ref(false)
 
-let unsubStatus: (() => void) | null = null
-let unsubConflict: (() => void) | null = null
+// 可调整宽度
+const sidebarWidth = ref(224) // 默认 56 * 4 = 224px
+const noteListWidth = ref(320) // 默认 80 * 4 = 320px
+let resizingPanel: 'sidebar' | 'noteList' | null = null
+let startX = 0
+let startWidth = 0
 
-onMounted(async () => {
-  await store.loadNotes()
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+let savedTimer: ReturnType<typeof setTimeout> | null = null
+let pairingTimer: ReturnType<typeof setInterval> | null = null
 
-  // 加载初始同步状态
-  const status = await window.syncAPI.getStatus()
+// 加载笔记和同步状态
+store.loadNotes()
+window.syncAPI.getStatus().then(status => {
   store.updateSyncStatus(status)
-
-  // 订阅状态变化
-  unsubStatus = window.syncAPI.onStatusChange((s) => {
-    store.updateSyncStatus(s)
-  })
-
-  // 订阅冲突事件
-  unsubConflict = window.syncAPI.onConflict((c) => {
-    store.setConflict(c)
-  })
 })
 
-onUnmounted(() => {
-  unsubStatus?.()
-  unsubConflict?.()
+// 订阅同步状态变化
+window.syncAPI.onStatusChange((status) => {
+  store.updateSyncStatus(status)
+})
+
+// 从 localStorage 加载宽度
+const savedSidebarWidth = localStorage.getItem('sidebarWidth')
+const savedNoteListWidth = localStorage.getItem('noteListWidth')
+if (savedSidebarWidth) sidebarWidth.value = parseInt(savedSidebarWidth)
+if (savedNoteListWidth) noteListWidth.value = parseInt(savedNoteListWidth)
+
+// 监听全屏状态变化
+function updateFullscreenStatus() {
+  isFullscreen.value = window.innerHeight === screen.height
+}
+
+window.addEventListener('resize', updateFullscreenStatus)
+updateFullscreenStatus()
+
+// 拖拽调整宽度
+function startResize(panel: 'sidebar' | 'noteList', event: MouseEvent) {
+  resizingPanel = panel
+  startX = event.clientX
+  startWidth = panel === 'sidebar' ? sidebarWidth.value : noteListWidth.value
+
+  document.body.classList.add('resizing')
+  document.addEventListener('mousemove', handleResize)
+  document.addEventListener('mouseup', stopResize)
+  event.preventDefault()
+}
+
+function handleResize(event: MouseEvent) {
+  if (!resizingPanel) return
+
+  const delta = event.clientX - startX
+  const newWidth = Math.max(180, Math.min(600, startWidth + delta))
+
+  if (resizingPanel === 'sidebar') {
+    sidebarWidth.value = newWidth
+  } else {
+    noteListWidth.value = newWidth
+  }
+}
+
+function stopResize() {
+  document.body.classList.remove('resizing')
+
+  if (resizingPanel) {
+    // 保存到 localStorage
+    if (resizingPanel === 'sidebar') {
+      localStorage.setItem('sidebarWidth', sidebarWidth.value.toString())
+    } else {
+      localStorage.setItem('noteListWidth', noteListWidth.value.toString())
+    }
+  }
+
+  resizingPanel = null
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+}
+
+
+// Tiptap 编辑器
+const editor = useEditor({
+  extensions: [
+    StarterKit,
+    Underline,
+    TaskList,
+    TaskItem.configure({ nested: true }),
+  ],
+  content: '',
+  editorProps: {
+    attributes: {
+      class: 'focus:outline-none min-h-[400px]',
+    },
+  },
+  onUpdate: ({ editor }) => {
+    handleContentChange(JSON.stringify(editor.getJSON()))
+  },
+})
+
+// 同步当前笔记到编辑器
+watch(() => store.currentNote, (note) => {
+  if (!note) return
+  titleInput.value = note.title
+
+  try {
+    const json = JSON.parse(note.content)
+    if (editor.value && JSON.stringify(editor.value.getJSON()) !== JSON.stringify(json)) {
+      editor.value.commands.setContent(json, false)
+    }
+  } catch {
+    editor.value?.commands.setContent(note.content || '', false)
+  }
+}, { immediate: true })
+
+// 保存逻辑
+function scheduleSave(changes: { title?: string; content?: string }) {
+  if (!store.currentNote) return
+  isSaving.value = true
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    await store.updateNote(store.currentNote!.id, changes)
+    isSaving.value = false
+    savedRecently.value = true
+    if (savedTimer) clearTimeout(savedTimer)
+    savedTimer = setTimeout(() => { savedRecently.value = false }, 2000)
+  }, 500)
+}
+
+function handleTitleChange() {
+  scheduleSave({ title: titleInput.value })
+}
+
+function handleContentChange(content: string) {
+  scheduleSave({ content })
+}
+
+async function handleNewNote() {
+  await store.createNote('新笔记', '')
+}
+
+async function handleDelete() {
+  if (!store.currentNote) return
+  if (confirm('确定要删除这条笔记吗？')) {
+    await store.deleteNote(store.currentNote.id)
+  }
+}
+
+async function handleExport() {
+  if (!store.currentNote) return
+  const result = await window.notesAPI.export({
+    id: store.currentNote.id,
+    format: 'md',
+  })
+  if (result.success) {
+    alert('导出成功！')
+  }
+}
+
+function handleSearch() {
+  store.searchNotes(searchQuery.value)
+}
+
+// 显示配对码
+async function showPairingCode() {
+  try {
+    const response = await fetch('http://localhost:45678/api/pairing-code')
+    const data = await response.json()
+    pairingCode.value = data.code
+    pairingExpiry.value = 60
+    showPairing.value = true
+
+    // 倒计时
+    if (pairingTimer) clearInterval(pairingTimer)
+    pairingTimer = setInterval(() => {
+      pairingExpiry.value--
+      if (pairingExpiry.value <= 0) {
+        if (pairingTimer) clearInterval(pairingTimer)
+        showPairing.value = false
+      }
+    }, 1000)
+  } catch (error) {
+    alert('获取配对码失败，请确保同步服务已启动')
+  }
+}
+
+// 新建文件夹
+function handleNewFolder() {
+  if (newFolderName.value.trim()) {
+    store.addFolder(newFolderName.value.trim())
+    newFolderName.value = ''
+    showNewFolderDialog.value = false
+  }
+}
+
+// 文件夹右键菜单（暂时简化，只支持删除）
+function handleFolderContextMenu(folder: any, event: MouseEvent) {
+  if (folder.id === 'all') return // 不能删除"所有笔记"
+
+  if (confirm(`确定要删除文件夹"${folder.name}"吗？`)) {
+    store.deleteFolder(folder.id)
+  }
+}
+
+function formatDate(ts: number): string {
+  const date = new Date(ts)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+  if (days === 0) return '今天'
+  if (days === 1) return '昨天'
+  if (days < 7) return `${days}天前`
+  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+}
+
+function formatFullDate(ts: number): string {
+  return new Date(ts).toLocaleString('zh-CN', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
+
+function formatSyncTime(ts: number): string {
+  const date = new Date(ts)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const seconds = Math.floor(diff / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+
+  if (seconds < 60) return '刚刚'
+  if (minutes < 60) return `${minutes} 分钟前`
+  if (hours < 24) return `${hours} 小时前`
+  return date.toLocaleDateString('zh-CN')
+}
+
+function getPreviewText(content: string): string {
+  if (!content) return ''
+  try {
+    const json = JSON.parse(content)
+    return extractTextFromTiptap(json).slice(0, 30)
+  } catch {
+    return content.slice(0, 30)
+  }
+}
+
+function extractTextFromTiptap(node: any): string {
+  if (!node) return ''
+  if (node.type === 'text') return node.text || ''
+  if (node.content && Array.isArray(node.content)) {
+    return node.content.map((child: any) => extractTextFromTiptap(child)).join(' ')
+  }
+  return ''
+}
+
+onBeforeUnmount(() => {
+  editor.value?.destroy()
+  if (pairingTimer) clearInterval(pairingTimer)
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+  window.removeEventListener('resize', updateFullscreenStatus)
+})
+
+// 工具栏按钮
+const ToolBtn = defineComponent({
+  props: { active: Boolean, title: String },
+  emits: ['click'],
+  setup(props, { slots, emit }) {
+    return () => h(
+      'button',
+      {
+        title: props.title,
+        onClick: () => emit('click'),
+        class: [
+          'p-1.5 rounded transition-colors',
+          props.active
+            ? 'bg-blue-100 text-blue-900'
+            : 'text-gray-600 hover:bg-gray-100',
+        ],
+      },
+      slots.default?.()
+    )
+  },
 })
 </script>
+
+<style scoped>
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* 防止拖拽时选中文本 */
+body.resizing {
+  user-select: none;
+  cursor: col-resize !important;
+}
+
+/* Prose 样式 */
+.prose :deep(p) {
+  margin: 0.75em 0;
+  line-height: 1.6;
+}
+
+.prose :deep(h1) {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+}
+
+.prose :deep(h2) {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 0.8em 0 0.4em;
+}
+
+.prose :deep(ul),
+.prose :deep(ol) {
+  padding-left: 1.5em;
+  margin: 0.75em 0;
+}
+
+.prose :deep(ul[data-type="taskList"]) {
+  list-style: none;
+  padding-left: 0;
+}
+
+.prose :deep(ul[data-type="taskList"] li) {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+
+.prose :deep(ul[data-type="taskList"] li > label) {
+  flex-shrink: 0;
+  margin-top: 0.2em;
+}
+
+.prose :deep(ul[data-type="taskList"] li > div) {
+  flex: 1;
+}
+
+.prose :deep(strong) {
+  font-weight: 600;
+}
+
+.prose :deep(em) {
+  font-style: italic;
+}
+
+.prose :deep(u) {
+  text-decoration: underline;
+}
+
+.prose :deep(code) {
+  background-color: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 0.25em;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-size: 0.9em;
+}
+</style>

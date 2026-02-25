@@ -33,6 +33,10 @@ contextBridge.exposeInMainWorld('foldersAPI', {
   getNotesCount: (folder_id: string) => ipcRenderer.invoke(IPC.FOLDERS_GET_NOTES_COUNT, folder_id),
 })
 
+contextBridge.exposeInMainWorld('imageAPI', {
+  compress: (dataURL: string) => ipcRenderer.invoke(IPC.IMAGE_COMPRESS, dataURL) as Promise<string>,
+})
+
 contextBridge.exposeInMainWorld('syncAPI', {
   getStatus: () => ipcRenderer.invoke(IPC.SYNC_STATUS) as Promise<SyncStatus>,
   resolve: (payload: any) => ipcRenderer.invoke(IPC.SYNC_RESOLVE, payload) as Promise<void>,

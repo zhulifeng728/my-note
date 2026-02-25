@@ -4,21 +4,15 @@
   "description": "本地优先跨设备笔记应用 - 桌面端",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "concurrently \"vite\" \"electron-dev\"",
+    "dev": "vite",
+    "build:electron": "tsc -p tsconfig.electron.json",
     "electron-dev": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
-    "build": "vite build && tsc -p tsconfig.electron.json && electron-builder",
+    "build": "npm run build:electron && vite build && electron-builder",
     "build:mac": "npm run build -- --mac",
     "build:win": "npm run build -- --win",
     "preview": "vite preview"
   },
   "dependencies": {
-    "better-sqlite3": "^9.4.3",
-    "bonjour-service": "^1.2.1",
-    "cors": "^2.8.5",
-    "docx": "^8.5.0",
-    "express": "^4.18.3",
-    "uuid": "^9.0.1",
-    "ws": "^8.16.0",
     "@tiptap/extension-color": "^2.2.4",
     "@tiptap/extension-task-item": "^2.2.4",
     "@tiptap/extension-task-list": "^2.2.4",
@@ -26,8 +20,16 @@
     "@tiptap/extension-underline": "^2.2.4",
     "@tiptap/starter-kit": "^2.2.4",
     "@tiptap/vue-3": "^2.2.4",
+    "better-sqlite3": "^9.4.3",
+    "bonjour-service": "^1.2.1",
+    "cors": "^2.8.5",
+    "docx": "^8.5.0",
+    "express": "^4.18.3",
     "pinia": "^3.0.0",
-    "vue": "^3.4.0"
+    "sharp": "^0.34.5",
+    "uuid": "^9.0.1",
+    "vue": "^3.4.0",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
@@ -43,11 +45,16 @@
     "cross-env": "^7.0.3",
     "electron": "^28.2.0",
     "electron-builder": "^24.9.1",
+    "electron-rebuild": "^3.2.9",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
     "vite-plugin-electron": "^0.28.4",
     "wait-on": "^7.2.0"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.1.0",
+    "utf-8-validate": "^6.0.6"
   }
 }

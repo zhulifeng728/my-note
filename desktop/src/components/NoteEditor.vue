@@ -213,3 +213,87 @@ const ToolBtn = defineComponent({
   },
 })
 </script>
+
+<style scoped>
+.tiptap-content :deep(.ProseMirror) {
+  outline: none;
+  min-height: 100%;
+}
+
+.tiptap-content :deep(.ProseMirror p) {
+  margin: 0.5em 0;
+}
+
+.tiptap-content :deep(.ProseMirror h1) {
+  font-size: 2em;
+  font-weight: bold;
+  margin: 1em 0 0.5em;
+}
+
+.tiptap-content :deep(.ProseMirror h2) {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 0.8em 0 0.4em;
+}
+
+.tiptap-content :deep(.ProseMirror ul),
+.tiptap-content :deep(.ProseMirror ol) {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.tiptap-content :deep(.ProseMirror ul[data-type="taskList"]) {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap-content :deep(.ProseMirror ul[data-type="taskList"] li) {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+
+.tiptap-content :deep(.ProseMirror ul[data-type="taskList"] li > label) {
+  flex-shrink: 0;
+  margin-top: 0.3em;
+}
+
+.tiptap-content :deep(.ProseMirror ul[data-type="taskList"] li > div) {
+  flex: 1;
+}
+
+.tiptap-content :deep(.ProseMirror strong) {
+  font-weight: bold;
+}
+
+.tiptap-content :deep(.ProseMirror em) {
+  font-style: italic;
+}
+
+.tiptap-content :deep(.ProseMirror u) {
+  text-decoration: underline;
+}
+
+.tiptap-content :deep(.ProseMirror code) {
+  background-color: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 0.25em;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.tiptap-content :deep(.ProseMirror pre) {
+  background-color: #1f2937;
+  color: #f9fafb;
+  padding: 1em;
+  border-radius: 0.5em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.tiptap-content :deep(.ProseMirror pre code) {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+</style>

@@ -63,6 +63,9 @@ declare global {
       move: (id: string, new_parent_id: string | null) => Promise<Folder>
       getNotesCount: (folder_id: string) => Promise<number>
     }
+    imageAPI: {
+      compress: (dataURL: string) => Promise<string>
+    }
     syncAPI: {
       getStatus: () => Promise<SyncStatus>
       resolve: (payload: ConflictResolvePayload) => Promise<void>

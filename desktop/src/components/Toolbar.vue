@@ -1,6 +1,7 @@
 <template>
-  <div class="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-4">
-    <div class="flex items-center gap-2">
+  <div class="h-12 bg-white border-b border-gray-200 flex items-center justify-between app-drag"
+       :class="isMac ? 'pl-20 pr-4' : 'px-4'">
+    <div class="flex items-center gap-2 app-no-drag">
       <button
         @click="handleNewNote"
         class="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
@@ -15,7 +16,7 @@
         导出
       </button>
     </div>
-    <div class="text-sm text-gray-500">
+    <div class="text-sm text-gray-500 app-no-drag">
       笔记应用
     </div>
   </div>
@@ -25,6 +26,7 @@
 import { useNotesStore } from '../stores/notes'
 
 const store = useNotesStore()
+const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
 async function handleNewNote() {
   await store.createNote('新笔记', '')
@@ -41,3 +43,13 @@ async function handleExport() {
   }
 }
 </script>
+
+<style scoped>
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+</style>

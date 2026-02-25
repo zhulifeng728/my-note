@@ -20,7 +20,7 @@
         ]"
       >
         <div class="font-medium text-sm truncate">{{ note.title || '未命名' }}</div>
-        <div class="text-xs text-gray-500 truncate mt-1">{{ note.content.slice(0, 50) }}</div>
+        <div class="text-xs text-gray-500 truncate mt-1">{{ getPreviewText(note.content) }}</div>
         <div class="text-xs text-gray-400 mt-1">
           {{ new Date(note.updated_at).toLocaleDateString() }}
         </div>
@@ -38,5 +38,32 @@ const searchQuery = ref('')
 
 function handleSearch() {
   store.searchNotes(searchQuery.value)
+}
+
+function getPreviewText(content: string): string {
+  if (!content) return '无内容'
+
+  try {
+    // 尝试解析 Tiptap JSON 格式
+    const json = JSON.parse(content)
+    return extractTextFromTiptap(json).slice(0, 50)
+  } catch {
+    // 如果不是 JSON，直接返回纯文本
+    return content.slice(0, 50)
+  }
+}
+
+function extractTextFromTiptap(node: any): string {
+  if (!node) return ''
+
+  if (node.type === 'text') {
+    return node.text || ''
+  }
+
+  if (node.content && Array.isArray(node.content)) {
+    return node.content.map((child: any) => extractTextFromTiptap(child)).join(' ')
+  }
+
+  return ''
 }
 </script>

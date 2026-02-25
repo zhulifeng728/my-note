@@ -84,6 +84,7 @@ export const IPC = {
   FOLDERS_DELETE: 'folders:delete',
   FOLDERS_MOVE: 'folders:move',
   FOLDERS_GET_NOTES_COUNT: 'folders:getNotesCount',
+  IMAGE_COMPRESS: 'image:compress',
   SYNC_STATUS: 'sync:status',
   SYNC_CONFLICT: 'sync:conflict',
   SYNC_RESOLVE: 'sync:resolve',

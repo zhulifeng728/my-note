@@ -14,6 +14,7 @@ import {
 } from './db/folders'
 import { startSyncServer, stopSyncServer, getSyncStatus } from './sync/server'
 import { exportNote } from './export'
+import { compressImage, compressImageFromDataURL } from './utils/image'
 import { IPC } from './types'
 import type {
   CreateNotePayload, UpdateNotePayload,
@@ -221,4 +222,14 @@ ipcMain.handle(IPC.FOLDERS_GET_NOTES_COUNT, (_, folder_id: string) => {
 
 ipcMain.handle(IPC.NOTES_MOVE_TO_FOLDER, (_, note_id: string, folder_id: string) => {
   return moveNoteToFolder(note_id, folder_id)
+})
+
+// ===== Image IPC Handlers =====
+
+ipcMain.handle(IPC.IMAGE_COMPRESS, async (_, dataURL: string) => {
+  try {
+    return await compressImageFromDataURL(dataURL)
+  } catch (error: any) {
+    throw new Error(error.message || '图片压缩失败')
+  }
 })

@@ -1,6 +1,6 @@
 import fs from 'fs/promises'
 import { Document, Paragraph, TextRun, Packer } from 'docx'
-import type { Note } from '../src/types'
+import type { Note } from './types'
 
 export async function exportNote(
   note: Note,
@@ -25,7 +25,7 @@ export async function exportNote(
               children: [new TextRun({ text: note.title, bold: true, size: 32 })],
             }),
             new Paragraph({ text: '' }),
-            ...note.content.split('\n').map(line =>
+            ...note.content.split('\n').map((line: string) =>
               new Paragraph({ children: [new TextRun(line)] })
             ),
           ],

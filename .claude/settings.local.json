@@ -3,7 +3,19 @@
     "allow": [
       "Bash(git init:*)",
       "Bash(git config:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm install:*)",
+      "Bash(npm config:*)",
+      "Bash(npm run dev)",
+      "Bash(pkill:*)",
+      "Bash(npx tsc:*)",
+      "Bash(NODE_ENV=development electron:*)",
+      "Bash(npx electron:*)",
+      "Bash(npm rebuild:*)",
+      "Bash(npx electron-rebuild:*)",
+      "Bash(xcode-select:*)",
+      "Bash(npm run build:electron:*)"
     ]
   }
 }

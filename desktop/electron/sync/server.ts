@@ -3,7 +3,6 @@ import cors from 'cors'
 import http from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import { v4 as uuidv4 } from 'uuid'
-import crypto from 'crypto'
 import { getDb } from '../db/database'
 import {
   getAllNotesForSync, getNotesSince,
@@ -13,7 +12,7 @@ import { startMdnsBroadcast, stopMdnsBroadcast } from './mdns'
 import type {
   SyncStatus, SyncConnectionStatus, ConflictInfo,
   ConflictResolvePayload, Note, Device
-} from '../../src/types'
+} from '../types'
 
 const PORT = 45678
 
