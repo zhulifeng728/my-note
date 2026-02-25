@@ -200,6 +200,10 @@ const noteCount = computed(() => {
 
 function handleClick() {
   store.currentFolderId = props.folder.id
+
+  // 切换文件夹后，自动选中第一条笔记，如果没有笔记则设为 null
+  const firstNote = store.filteredNotes[0]
+  store.currentNoteId = firstNote ? firstNote.id : null
 }
 
 function toggleExpand() {
