@@ -304,6 +304,15 @@
       </div>
     </div>
   </div>
+
+  <!-- 通用弹窗 -->
+  <Dialog
+    v-model="dialogState.show"
+    :type="dialogState.type"
+    :title="dialogState.title"
+    :message="dialogState.message"
+    @confirm="dialogState.onConfirm"
+  />
 </template>
 
 <script setup lang="ts">
@@ -316,6 +325,7 @@ import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
 import { useNotesStore } from './stores/notes'
 import FolderTreeItem from './components/FolderTreeItem.vue'
+import Dialog from './components/Dialog.vue'
 
 const store = useNotesStore()
 const searchQuery = ref('')
@@ -329,6 +339,15 @@ const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 const showNewFolderDialog = ref(false)
 const newFolderName = ref('')
 const isFullscreen = ref(false)
+
+// Dialog 状态
+const dialogState = ref({
+  show: false,
+  type: 'info' as 'info' | 'success' | 'warning' | 'confirm',
+  title: '',
+  message: '',
+  onConfirm: () => {}
+})
 
 // 可调整宽度
 const sidebarWidth = ref(224) // 默认 56 * 4 = 224px
@@ -507,8 +526,14 @@ async function handleNewNote() {
 
 async function handleDelete() {
   if (!store.currentNote) return
-  if (confirm('确定要删除这条笔记吗？')) {
-    await store.deleteNote(store.currentNote.id)
+  dialogState.value = {
+    show: true,
+    type: 'confirm',
+    title: '删除笔记',
+    message: '确定要删除这条笔记吗？删除后无法恢复。',
+    onConfirm: async () => {
+      await store.deleteNote(store.currentNote!.id)
+    }
   }
 }
 
@@ -519,7 +544,13 @@ async function handleExport() {
     format: 'md',
   })
   if (result.success) {
-    alert('导出成功！')
+    dialogState.value = {
+      show: true,
+      type: 'success',
+      title: '导出成功',
+      message: '笔记已成功导出到指定位置。',
+      onConfirm: () => {}
+    }
   }
 }
 
@@ -531,13 +562,25 @@ function handleSearch() {
 async function handleImageFile(file: File) {
   // 检查文件类型
   if (!file.type.startsWith('image/')) {
-    alert('只支持图片文件')
+    dialogState.value = {
+      show: true,
+      type: 'warning',
+      title: '文件类型错误',
+      message: '只支持图片文件，请选择 JPG、PNG 或其他图片格式。',
+      onConfirm: () => {}
+    }
     return
   }
 
   // 检查文件大小 (10MB)
   if (file.size > 10 * 1024 * 1024) {
-    alert('图片过大，最大支持 10MB')
+    dialogState.value = {
+      show: true,
+      type: 'warning',
+      title: '文件过大',
+      message: '图片过大，最大支持 10MB。请压缩后重试。',
+      onConfirm: () => {}
+    }
     return
   }
 
@@ -557,7 +600,13 @@ async function handleImageFile(file: File) {
     reader.readAsDataURL(file)
   } catch (error) {
     console.error('Failed to process image:', error)
-    alert('图片处理失败')
+    dialogState.value = {
+      show: true,
+      type: 'warning',
+      title: '处理失败',
+      message: '图片处理失败，请重试或选择其他图片。',
+      onConfirm: () => {}
+    }
   }
 }
 
@@ -594,7 +643,13 @@ async function showPairingCode() {
       }
     }, 1000)
   } catch (error) {
-    alert('获取配对码失败，请确保同步服务已启动')
+    dialogState.value = {
+      show: true,
+      type: 'warning',
+      title: '连接失败',
+      message: '获取配对码失败，请确保同步服务已启动。',
+      onConfirm: () => {}
+    }
   }
 }
 
