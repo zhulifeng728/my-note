@@ -612,6 +612,39 @@ function handleNoteDragStart(noteId: string, event: DragEvent) {
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('noteId', noteId)
+
+    // 创建拖拽图标
+    const dragIcon = document.createElement('div')
+    dragIcon.className = 'drag-icon'
+    dragIcon.innerHTML = `
+      <div style="
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 8px 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #374151;
+      ">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+          <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+        </svg>
+        <span>移动笔记</span>
+      </div>
+    `
+    dragIcon.style.position = 'absolute'
+    dragIcon.style.top = '-1000px'
+    document.body.appendChild(dragIcon)
+    event.dataTransfer.setDragImage(dragIcon, 0, 0)
+
+    // 清理
+    setTimeout(() => {
+      document.body.removeChild(dragIcon)
+    }, 0)
   }
 }
 
