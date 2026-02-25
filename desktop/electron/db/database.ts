@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
 import { app } from 'electron'
+import { runMigrations } from './migrations'
 
 let db: Database.Database
 
@@ -28,6 +29,7 @@ export function initDb(): Database.Database {
   db.pragma('foreign_keys = ON')
 
   createTables(db)
+  runMigrations(db)
   console.log(`[DB] Initialized at: ${dbPath}`)
   return db
 }
