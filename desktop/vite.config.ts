@@ -18,6 +18,7 @@ export default defineConfig({
                 'better-sqlite3',
                 'bufferutil',
                 'utf-8-validate',
+                'sharp',
               ],
             },
           },
