@@ -199,15 +199,34 @@ ipcMain.handle(IPC.FOLDERS_DELETE, (_, id: string) => {
 })
 
 ipcMain.handle(IPC.FOLDERS_DELETE + ':confirm', (_, id: string, moveNotesTo: string | null) => {
-  // 如果需要移动笔记
+  // 获取当前文件夹和所有子文件夹的ID
+  const descendantIds = getDescendantFolderIds(id)
+  const allFolderIds = [id, ...descendantIds]
+
   if (moveNotesTo) {
-    const notes = getNotesByFolder(id)
-    notes.forEach(note => {
-      moveNoteToFolder(note.id, moveNotesTo)
+    // 移动所有文件夹（包括子文件夹）中的笔记
+    allFolderIds.forEach(folderId => {
+      const notes = getNotesByFolder(folderId)
+      notes.forEach(note => {
+        moveNoteToFolder(note.id, moveNotesTo)
+      })
+    })
+  } else {
+    // 删除所有文件夹（包括子文件夹）中的笔记
+    allFolderIds.forEach(folderId => {
+      const notes = getNotesByFolder(folderId)
+      notes.forEach(note => {
+        deleteNote(note.id)
+      })
     })
   }
 
-  // 删除文件夹（会级联删除子文件夹）
+  // 删除所有子文件夹
+  descendantIds.forEach(folderId => {
+    deleteFolder(folderId)
+  })
+
+  // 删除当前文件夹
   deleteFolder(id)
   return { success: true }
 })

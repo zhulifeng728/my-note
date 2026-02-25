@@ -147,42 +147,61 @@
     </div>
 
     <!-- 删除确认对话框 -->
-    <div v-if="showDeleteDialog" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click="showDeleteDialog = false">
-      <div class="bg-white rounded-lg shadow-xl p-6 min-w-[400px]" @click.stop>
-        <h3 class="text-lg font-semibold mb-4">删除文件夹</h3>
-        <p class="text-sm text-gray-600 mb-4">
-          <span v-if="deleteInfo?.hasSubfolders">
-            文件夹包含 {{ deleteInfo.subfoldersCount }} 个子文件夹和 {{ deleteInfo.noteCount }} 条笔记
-          </span>
-          <span v-else-if="deleteInfo?.noteCount">
-            文件夹包含 {{ deleteInfo.noteCount }} 条笔记
-          </span>
-        </p>
-        <div class="flex flex-col gap-2">
+    <div v-if="showDeleteDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="showDeleteDialog = false">
+      <div class="bg-white rounded-xl shadow-2xl p-6 min-w-[420px] max-w-[500px]" @click.stop>
+        <div class="flex items-start gap-3 mb-4">
+          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-gray-900 mb-1">删除文件夹</h3>
+            <p class="text-sm text-gray-600">
+              <span v-if="deleteInfo?.hasSubfolders">
+                此文件夹包含 <span class="font-medium text-gray-900">{{ deleteInfo.subfoldersCount }}</span> 个子文件夹和 <span class="font-medium text-gray-900">{{ deleteInfo.noteCount }}</span> 条笔记
+              </span>
+              <span v-else-if="deleteInfo?.noteCount">
+                此文件夹包含 <span class="font-medium text-gray-900">{{ deleteInfo.noteCount }}</span> 条笔记
+              </span>
+              <span v-else>
+                确定要删除这个空文件夹吗？
+              </span>
+            </p>
+          </div>
+        </div>
+
+        <div class="space-y-2">
           <button
             v-if="deleteInfo && (deleteInfo.noteCount > 0 || deleteInfo.hasSubfolders)"
             @click="confirmDelete('all')"
-            class="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+            class="w-full px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
           >
-            将笔记移到"所有笔记"并删除文件夹
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+            </svg>
+            保留笔记并删除文件夹
           </button>
           <button
             v-if="deleteInfo && (deleteInfo.noteCount > 0 || deleteInfo.hasSubfolders)"
             @click="confirmDelete(null)"
-            class="w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+            class="w-full px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
           >
-            删除文件夹及所有笔记
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            永久删除文件夹和所有笔记
           </button>
           <button
             v-if="deleteInfo && deleteInfo.noteCount === 0 && !deleteInfo.hasSubfolders"
             @click="confirmDelete(null)"
-            class="w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+            class="w-full px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
           >
-            删除空文件夹
+            确认删除
           </button>
           <button
             @click="showDeleteDialog = false"
-            class="w-full px-4 py-2 bg-gray-100 rounded hover:bg-gray-200 text-sm"
+            class="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
           >
             取消
           </button>
