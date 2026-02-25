@@ -53,29 +53,40 @@
       />
     </div>
 
-    <!-- 右键菜单对话框 -->
-    <div v-if="showContextMenu" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click="showContextMenu = false">
-      <div class="bg-white rounded-lg shadow-xl p-4 min-w-[200px]" @click.stop>
+    <!-- 右键菜单 -->
+    <div
+      v-if="showContextMenu"
+      class="fixed z-50"
+      :style="{ left: menuPosition.x + 'px', top: menuPosition.y + 'px' }"
+    >
+      <div class="bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px]">
         <button
           @click="handleCreateSubfolder"
-          class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm"
+          class="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
         >
           新建子文件夹
         </button>
         <button
           @click="handleRename"
-          class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm"
+          class="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
         >
           重命名
         </button>
         <button
           @click="handleDelete"
-          class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 rounded text-sm"
+          class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 text-sm"
         >
           删除
         </button>
       </div>
     </div>
+
+    <!-- 点击其他地方关闭菜单 -->
+    <div
+      v-if="showContextMenu"
+      class="fixed inset-0 z-40"
+      @click="showContextMenu = false"
+    ></div>
 
     <!-- 新建子文件夹对话框 -->
     <div v-if="showSubfolderDialog" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click="showSubfolderDialog = false">
@@ -154,6 +165,7 @@ const showSubfolderDialog = ref(false)
 const showRenameDialog = ref(false)
 const subfolderName = ref('')
 const newName = ref('')
+const menuPosition = ref({ x: 0, y: 0 })
 
 const isSelected = computed(() => store.currentFolderId === props.folder.id)
 const isExpanded = computed(() => store.expandedFolders.has(props.folder.id))
@@ -196,6 +208,7 @@ function toggleExpand() {
 
 function handleContextMenu(event: MouseEvent) {
   if (props.folder.id === 'all') return // 不能操作"所有笔记"
+  menuPosition.value = { x: event.clientX, y: event.clientY }
   showContextMenu.value = true
 }
 
